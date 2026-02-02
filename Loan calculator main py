@@ -1,0 +1,123 @@
+import functions_framework
+import flask
+import json
+
+def get_apr_for_amount(principal):
+    """
+    Determines the APR based on the principal loan amount according to business rules.
+    """
+    # Your new APR tiers
+    if 1000 <= principal <= 2999:
+        return 13.5
+    elif 3000 <= principal <= 4999:
+        return 9.9
+    elif 5000 <= principal <= 7499:
+        return 7.1
+    elif 7500 <= principal <= 25000:
+        return 6.0
+    else:
+        # This will be caught by the main validation, but is good practice
+        return None
+
+@functions_framework.http
+def calculate_loan(request: flask.Request) -> flask.Response:
+    """
+    HTTP-triggered Cloud Function to calculate loan payments.
+    Expects a JSON payload with 'principal' and 'term_years'.
+    APR is determined by the function based on the principal.
+    """
+    try:
+        # 1. Parse the incoming request
+        request_json = request.get_json(silent=True)
+        
+        if not request_json:
+            return flask.Response(
+                json.dumps({"error": "No JSON payload received."}),
+                status=400,
+                mimetype="application/json"
+            )
+
+        P = request_json.get('principal')
+        term_years = request_json.get('term_years')
+
+        if not all([P, term_years]):
+            return flask.Response(
+                json.dumps({"error": "Missing required fields: 'principal' or 'term_years'."}),
+                status=400,
+                mimetype="application/json"
+            )
+        
+        # 2. Validate inputs based on new business rules
+        # Check principal amount
+        if not (1000 <= P <= 25000):
+            return flask.Response(
+                json.dumps({"error": f"Loan amount must be between £1,000 and £25,000. You requested £{P}."}),
+                status=400,
+                mimetype="application/json"
+            )
+        
+        # Check loan term
+        if not (1 <= term_years <= 5):
+             return flask.Response(
+                json.dumps({"error": f"Loan term must be between 1 and 5 years. You requested {term_years} years."}),
+                status=400,
+                mimetype="application/json"
+            )
+
+        # 3. Perform the calculations
+        
+        # P = The principal loan amount (already have)
+        
+        # Get APR based on principal
+        apr = get_apr_for_amount(P)
+        if apr is None:
+             # This should not happen if validation is correct, but as a safeguard:
+            return flask.Response(
+                json.dumps({"error": "Could not determine APR for the given amount."}),
+                status=400,
+                mimetype="application/json"
+            )
+        
+        # r = The monthly interest rate
+        apr_decimal = apr / 100
+        r = apr_decimal / 12
+        
+        # n = The total number of payments (months)
+        n = term_years * 12
+        
+        # M = Monthly payment
+        if r > 0:
+            # Standard amortization formula
+            M = P * (r * (1 + r)**n) / ((1 + r)**n - 1)
+        else:
+            # Handle 0% APR case (though not possible with your tiers)
+            M = P / n
+
+        # Calculate Total Repayable
+        total_repayable = M * n
+
+        # 4. Format the response data
+        # We round the currency values to 2 decimal places
+        response_data = {
+            "monthly_payment": round(M, 2),
+            "total_repayable": round(total_repayable, 2),
+            "total_months": n,
+            "apr_used": apr,
+            "principal_received": P,
+            "term_years_received": term_years
+        }
+
+        # 5. Send the successful response
+        return flask.Response(
+            json.dumps(response_data),
+            status=200,
+            mimetype="application/json"
+        )
+
+    except Exception as e:
+        # Handle any unexpected errors
+        return flask.Response(
+            json.dumps({"error": str(e)}),
+            status=500,
+            mimetype="application/json"
+        )
