@@ -1,0 +1,132 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Personal Loan Calculator",
+    "version": "2.0.0",
+    "description": "The Personal Loan Calculator allows the user to perform precise loan calculations tailored to their needs. By inputting the desired borrowing amount and repayment period, the user receives the calculated interest rate, the monthly repayment figure, and the total amount repayable for the loan."
+  },
+  "servers": [
+    {
+      "url": "{REPLACE_WITH_YOUR_URL}"
+    }
+  ],
+  "paths": {
+    "/": {
+      "post": {
+        "summary": "Calculate Loan Payment",
+        "description": "Calculates the loan payment based on principal and term. The APR is determined automatically by the function.",
+        "operationId": "calculateLoan",
+        "requestBody": {
+          "description": "Loan details. APR is not needed as it's calculated automatically.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalculateLoanRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Loan calculation successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculateLoanResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input (e.g., amount or term out of range). Response body contains an 'error' field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error. Response body contains an 'error' field.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CalculateLoanRequest": {
+        "type": "object",
+        "properties": {
+          "principal": {
+            "type": "number",
+            "description": "Loan amount that  customer is going borrow (must be between 1,000 and 25,000)."
+          },
+          "term_years": {
+            "type": "number",
+            "description": "Loan repayment period in years, preferred by customer to repay the borrowed loan (must be between 1 and 5)."
+          }
+        },
+        "required": [
+          "principal",
+          "term_years"
+        ]
+      },
+      "CalculateLoanResponse": {
+        "type": "object",
+        "properties": {
+          "monthly_payment": {
+            "type": "number",
+            "description": "The calculated monthly payment."
+          },
+          "total_repayable": {
+            "type": "number",
+            "description": "The total amount that will be repaid over the life of the loan."
+          },
+          "total_months": {
+            "type": "number",
+            "description": "The total number of payments (term in months)."
+          },
+          "apr_used": {
+            "type": "number",
+            "description": "The APR that was determined and used in the calculation."
+          },
+          "principal_received": {
+            "type": "number",
+            "description": "The principal amount that was processed."
+          },
+          "term_years_received": {
+            "type": "number",
+            "description": "The term in years that was processed."
+          }
+        },
+        "required": [
+          "monthly_payment",
+          "total_repayable",
+          "total_months",
+          "apr_used",
+          "principal_received",
+          "term_years_received"
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "A description of the error that occurred."
+          }
+        }
+      }
+    }
+  }
+}
