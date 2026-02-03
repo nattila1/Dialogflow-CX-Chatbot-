@@ -1,0 +1,129 @@
+import functions_framework
+import google.auth
+from googleapiclient.discovery import build
+import flask
+import json
+import datetime
+
+# --- START: Configuration ---
+# !! REPLACE WITH YOUR SPREADSHEET ID
+# You can find this in the URL of your Google Sheet:
+# https://docs.google.com/spreadsheets/d/THIS_IS_THE_ID/edit
+SPREADSHEET_ID = '{YOUR_SHEET_ID}'
+
+# !! REPLACE WITH YOUR TAB NAME
+# The name of the specific sheet (tab) in your file you want to write to.
+SHEET_NAME = '{YOUR_SHEET_NAME}'
+# --- END: Configuration ---
+
+
+def _write_to_google_sheet(new_row: list):
+    """
+    Separated logic function.
+    Authenticates and appends a single row to the configured Google Sheet.
+    Raises an exception on failure.
+    """
+    # google.auth.default() finds the service account credentials automatically
+    # when deployed on Google Cloud Functions.
+    credentials, _ = google.auth.default(
+        scopes=['https://www.googleapis.com/auth/spreadsheets']
+    )
+    service = build('sheets', 'v4', credentials=credentials)
+
+    # 6. Call the Sheets API to append the data
+    request_body = {
+        'values': [new_row]  # The data must be a list of lists
+    }
+
+    service.spreadsheets().values().append(
+        spreadsheetId=SPREADSHEET_ID,
+        range=f"{SHEET_NAME}!A1",  # Appends after the last row in this sheet
+        valueInputOption='USER_ENTERED',
+        insertDataOption='INSERT_ROWS',
+        body=request_body
+    ).execute()
+
+
+@functions_framework.http
+def write_loan_data(request: flask.Request) -> flask.Response:
+    """
+    HTTP-triggered Cloud Function to write loan data to a Google Sheet.
+    Called by a Dialogflow CX Webhook.
+    """
+    try:
+        # 1. Get the JSON payload from the Dialogflow request
+        request_json = request.get_json(silent=True)
+        
+        if not request_json:
+            payload = _build_dialogflow_response('Error: Bad request, no JSON payload received.')
+            return flask.Response(json.dumps(payload), status=200, mimetype='application/json')
+
+        params = request_json.get('sessionInfo', {}).get('parameters', {})
+
+        if not params:
+            payload = _build_dialogflow_response('Error: Bad request, missing sessionInfo or parameters.')
+            return flask.Response(json.dumps(payload), status=200, mimetype='application/json')
+
+        # 2. Extract all parameters
+        name = params.get('name')
+        phone = params.get('phone_number')  # Use .get('phone-number') if param has a hyphen
+        loan_amount = params.get('loan_amount')
+        loan_term = params.get('loan_term')
+        monthly_payment = params.get('monthly_payment')
+        total_repayable = params.get('total_repayable')
+        apr = params.get('apr')
+
+        # 3. Check for presence of all parameters
+        all_params = [
+            name, phone, loan_amount, loan_term,
+            monthly_payment, total_repayable, apr
+        ]
+        
+        if not all(all_params):
+            missing_str = 'Error: One or more required parameters were missing. Could not save.'
+            payload = _build_dialogflow_response(missing_str)
+            return flask.Response(json.dumps(payload), status=200, mimetype='application/json')
+
+        # 4. Construct the row to be appended
+        # The order here defines the column order in your Google Sheet
+        new_row = [
+            name,
+            phone,
+            loan_amount,
+            loan_term,
+            monthly_payment,
+            total_repayable,
+            apr,
+            str(datetime.datetime.now())  # Optional: Add a timestamp
+        ]
+
+        # 5. Call the separated logic function
+        _write_to_google_sheet(new_row)
+
+        # 7. Send a success response back to Dialogflow
+        success_message = f"Thank you, {name}. Your data has been saved successfully."
+        payload = _build_dialogflow_response(success_message)
+        return flask.Response(json.dumps(payload), status=200, mimetype='application/json')
+
+    except Exception as e:
+        print(f"Error writing to Google Sheet: {e}")
+        # 8. Send a failure response back to Dialogflow
+        error_message = 'I encountered an internal error and could not save your data. Please try again.'
+        payload = _build_dialogflow_response(error_message)
+        # Note: Still returning status 200, which is required for Dialogflow webhooks
+        return flask.Response(json.dumps(payload), status=200, mimetype='application/json')
+
+
+def _build_dialogflow_response(text_message):
+    """
+    Helper function to create a valid Dialogflow CX JSON response payload.
+    """
+    return {
+        'fulfillment_response': {
+            'messages': [{
+                'text': {
+                    'text': [text_message]
+                }
+            }]
+        }
+    }
