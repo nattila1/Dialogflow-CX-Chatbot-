@@ -34,7 +34,7 @@
                             "type": "string",
                             "description": "Applicant's full name"
                           },
-                          "phone-number": {
+                          "phone_number": {
                             "type": "string",
                             "description": "Applicant's phone number"
                           },
@@ -61,7 +61,7 @@
                         },
                         "required": [
                           "name",
-                          "phone-number",
+                          "phone_number",
                           "loan_amount",
                           "loan_term",
                           "monthly_payment",
