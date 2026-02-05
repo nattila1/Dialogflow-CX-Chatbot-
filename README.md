@@ -4,6 +4,8 @@ This repository contains the resources and architecture for building a sophistic
 
 *For detailed step-by-step instructions and the full source code for the Python functions and OpenAPI schemas, please refer to the [associated blog post](https://bestflow.io/blog/posts/how-to-create-an-enterprise-level-ai-chatbot-for-answering-your-business-question-perform-custom-actions-and-collect-leads-to-google-sheets/).*
 
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/0pQBq_DgSdQ/0.jpg)](https://www.youtube.com/watch?v=0pQBq_DgSdQ)
+
 ## 🚀 Key Features
 
 * **🧠 Brains & Logic:** Powered by the Playbooks framework, allowing for natural, unpredictable human conversations that stay on track.
